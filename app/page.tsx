@@ -6,8 +6,13 @@ import WebVitals from "@/components/home/web-vitals";
 import ComponentGrid from "@/components/home/component-grid";
 import Image from "next/image";
 import { nFormatter } from "@/lib/utils";
+import runSelect1 from "@/lib/db";
+import { cookies } from 'next/headers';
+import { checkAuth } from "@/lib/keyauth";
 
 export default async function Home() {
+  let user = checkAuth(cookies());
+
   const { stargazers_count: stars } = await fetch(
     "https://api.github.com/repos/steven-tey/precedent",
     {
@@ -23,6 +28,8 @@ export default async function Home() {
   )
     .then((res) => res.json())
     .catch((e) => console.log(e));
+
+  const mydata = await runSelect1();
 
   return (
     <>
@@ -52,6 +59,12 @@ export default async function Home() {
             An opinionated collection of components, hooks, and utilities for
             your Next.js project.
           </Balancer>
+        </p>
+        <p
+          className="mt-6 animate-fade-up text-center text-gray-500 opacity-0 md:text-xl"
+          style={{ animationDelay: "0.25s", animationFillMode: "forwards" }}
+        >
+          {mydata.map((item) => JSON.stringify(item))}
         </p>
         <div
           className="mx-auto mt-6 flex animate-fade-up items-center justify-center space-x-5 opacity-0"
