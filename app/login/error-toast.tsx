@@ -8,14 +8,15 @@ export default function ErrorToast() {
 
     function isAuthError() {
         console.log(searchParams);
-        return new URLSearchParams(searchParams).get('error') === 'wrongtoken';
+        return searchParams.get('error') === 'wrongtoken';
     }
 
     return (
         <Toast
-                children={"Provided token is invalid. Please try again."}
                 title="Auth Error"
                 fire={isAuthError()}
-            />
+        >
+            Provided token is invalid. Please try again.
+        </Toast>
     )
 }

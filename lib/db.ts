@@ -3,7 +3,7 @@ import { sql } from 'drizzle-orm';
 import postgres from 'postgres';
 
 
-const client = postgres(process.env.STATS_DB, {
+const client = postgres(process.env.STATS_DB || '', {
     ssl: true,
 });
 const db = drizzle(client);

@@ -7,11 +7,6 @@ const nextConfig = {
   },
   async redirects() {
     return [
-      {
-        source: "/github",
-        destination: "https://github.com/steven-tey/precedent",
-        permanent: false,
-      },
     ];
   },
   experimental: {

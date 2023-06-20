@@ -4,6 +4,7 @@ import Balancer from 'react-wrap-balancer';
 import { redirect } from "next/navigation";
 import ErrorToast from './error-toast';
 import { revalidatePath } from 'next/cache'
+import { RequestCookies } from 'next/dist/compiled/@edge-runtime/cookies';
 
 export default async function LoginPage() {
     async function doLogin(data: FormData) {
