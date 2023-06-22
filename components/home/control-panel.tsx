@@ -1,13 +1,20 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function ControlPanel({ filtersStr, groupByStr, fromStr, toStr }: { filtersStr: string, groupByStr: string, fromStr: string, toStr: string}) {
     const [filters, setFilters] = useState<string>(filtersStr);
     const [groupBy, setGroupBy] = useState<string>(groupByStr);
     const [from, setFrom] = useState<string>(fromStr);
     const [to, setTo] = useState<string>(toStr);
+
+    useEffect(() => {
+        setFilters(filtersStr);
+        setGroupBy(groupByStr);
+        setFrom(fromStr);
+        setTo(toStr);
+    }, [filtersStr, groupByStr, fromStr, toStr]);
 
     const router = useRouter();
 

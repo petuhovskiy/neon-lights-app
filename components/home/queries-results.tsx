@@ -1,17 +1,45 @@
-import { GroupBinInfo } from "@/lib/db";
+import { GroupBinInfo, QGroup, Query } from "@/lib/db";
 import { TimeChunks } from "@/lib/intervals";
+import { Bins } from "./queries-bins";
+import { nFormatter } from "@/lib/utils";
+import { getBinInterval, uniqueBinId } from "@/lib/bins";
+import { Search, Twitter } from "../shared/icons";
+import { ZoomInInterval } from "./zoom-in-interval";
+import { ExpandableQuery } from "./expandable-query";
 
 export type Group = {
-    pgRow: Record<string, unknown>;
+    row: QGroup;
     bins: GroupBinInfo[];
     chunks: TimeChunks;
 };
 
-export function QueriesResults({ groups }: { groups: Group[] }) {
+export function QueriesResults(
+    {
+        groups,
+        regions,
+        selectedBin,
+        selectedBinQueries,
+        selectedGroup,
+    }: {
+        groups: Group[],
+        regions: Record<string, string>,
+        selectedBin: string,
+        selectedBinQueries: Query[] | undefined,
+        selectedGroup: Group | undefined,
+    }) {
     const renders = groups.map((group) => {
-        return (
-            <GroupView group={group} />
-        )
+        const groupView = (
+            <GroupView group={group} regions={regions} selectedBin={selectedBin} key={group.row.uniqueId} />
+        );
+        if (group == selectedGroup && selectedBinQueries != undefined) {
+            return (
+                <>
+                    {groupView}
+                    <SelectedBinView group={group} allQueries={selectedBinQueries} selectedBinStr={selectedBin} />
+                </>
+            )
+        }
+        return groupView;
     });
 
     return (
@@ -21,65 +49,70 @@ export function QueriesResults({ groups }: { groups: Group[] }) {
     )
 }
 
-export function GroupView({ group }: { group: Group }) {
+export function GroupView({ group, regions, selectedBin }: { group: Group, regions: Record<string, string>, selectedBin: string }) {
     let exactFeatures = [];
-    for (const [key, value] of Object.entries(group.pgRow)) {
-        if (key == 'count') continue;
-        // TODO: region_id -> region name
+    for (const [key, value] of Object.entries(group.row.row)) {
+        if (key == 'region_id') {
+            exactFeatures.push(`[${value}]` + regions[value as string]);
+            continue;
+        }
         exactFeatures.push(value);
     }
     const groupName = exactFeatures.join(', ');
 
     return (
         <div className="border border-gray-300 rounded-lg p-4 relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
-            <h2>{groupName}</h2>
-            {JSON.stringify(group.pgRow)}
-            <Bars rawBins={group.bins} chunks={group.chunks} />
+            <div className="w-full pb-4">
+                <h2 className="inline-block scroll-m-20 text-2xl font-semibold tracking-tight">{groupName}</h2>
+                <p className="inline-block float-right text-xl">Total {nFormatter(group.row.count)}</p>
+            </div>
+            <Bins group={group} rawBins={group.bins} chunks={group.chunks} selectedBin={selectedBin} />
         </div>
     )
 }
 
-export function Bars({ rawBins, chunks }: { rawBins: GroupBinInfo[], chunks: TimeChunks }) {
-    let binIndex = 0;
-    let bins: GroupBinInfo[] = [];
-    for (let i = 0, ms = chunks.start.getTime(); i < chunks.numberOfChunks; i++, ms += chunks.intervalMs) {
-        if (binIndex < rawBins.length) {
-            const bin = rawBins[binIndex];
-            if (bin.bin.getTime() < ms) {
-                console.log('ASSERT bin.bin.getTime() < ms');
-            }
-            if (bin.bin.getTime() <= ms) {
-                bins.push(bin);
-                binIndex++;
-                continue;
-            }
-        }
-
-        bins.push({
-            count: 0,
-            failed_count: 0,
-            success_count: 0,
-            bin: new Date(ms),
-        });
+export function SelectedBinView(
+    {
+        group,
+        allQueries,
+        selectedBinStr,
+    }: {
+        group: Group,
+        allQueries: Query[],
+        selectedBinStr: string
     }
-
-    const htmlBins = bins.map((bin) => {
-        return (
-            <a
-                data-state="closed"
-                className={`flex-1 rounded-sm border border-white transition-all duration-150 px-px hover:scale-110 py-1 ${
-                    bin.count == 0 ? "bg-zinc-400/20 hover:bg-zinc-400/50" : "bg-emerald-500"
-                } bg-red-500`}
-                style={{height: '100%'}}>
-            </a>
-        )
+) {
+    const selectedBin = group.bins.find((bin) => {
+        return uniqueBinId(group, bin) == selectedBinStr;
     });
 
+    if (selectedBin == undefined) {
+        throw new Error("Selected bin not found: " + selectedBinStr);
+    }
+
+    const { startTs, duration } = getBinInterval(group, selectedBin);
+
+    const tsFrom = selectedBin.bin;
+    const tsTo = new Date(tsFrom.getTime() + group.chunks.intervalMs);
+
     return (
-        <div className="w-full">
-            <div className="flex w-full bg-white h-12 items-end">
-                {htmlBins}
+        <div className="border border-gray-300 rounded-lg p-4 relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
+            <div className="w-full pb-4">
+                <h2 className="inline-block scroll-m-20 text-xl font-semibold tracking-tight">{startTs} + {duration}</h2>
+                <div className="inline-block p-1 m-1 float-left">
+                    <ZoomInInterval tsFrom={tsFrom.toISOString()} tsTo={tsTo.toISOString()} />
+                </div>
+                <p className="inline-block float-right text-l">Total {allQueries.length}</p>
             </div>
+            <ul className="overflow-auto">
+                {allQueries.map((query) => {
+                    return (
+                        <li key={query.id}>
+                            <ExpandableQuery query={query} />
+                        </li>
+                    )
+                })}
+            </ul>
         </div>
     )
 }
