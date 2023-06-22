@@ -68,6 +68,7 @@ export type GroupBinInfo = {
     count: number,
     failed_count: number,
     success_count: number,
+    avg_duration_ns: number | undefined,
     bin: Date,
 }
 
@@ -83,7 +84,15 @@ export async function fetchGroupInfo(filters: string, fromTs: string, toTs: stri
     const successCount = `count(*) FILTER (WHERE is_failed = 'f')`;
 
     // SELECT count(*), date_bin('1000 ms', created_at, '2023-06-21') AS bin FROM queries WHERE created_at > '2023-06-21' AND created_at < '2023-06-22'` GROUP BY bin
-    const res = await db.execute<GroupBinInfo>(sql.raw(`SELECT count(*) AS count, ${failedCount} AS failed_count, ${successCount} AS success_count, ${dateBin} AS bin FROM queries WHERE (${filters}) AND created_at >= '${fromTs}' AND created_at < '${toTs}' ${groupFilters} GROUP BY bin ORDER BY bin`));
+    const res = await db.execute<GroupBinInfo>(sql.raw(`SELECT count(*) AS count, ${failedCount} AS failed_count, ${successCount} AS success_count, ${dateBin} AS bin, AVG(duration) AS avg_duration_ns FROM queries WHERE (${filters}) AND created_at >= '${fromTs}' AND created_at < '${toTs}' ${groupFilters} GROUP BY bin ORDER BY bin`));
+    
+    // TODO: fix this with proper NULL
+    for (const row of res) {
+        if (Number(row.avg_duration_ns) <= 0.0) {
+            row.avg_duration_ns = undefined;
+        }
+    }
+   
     // console.log(res);
     return {
         row: group,

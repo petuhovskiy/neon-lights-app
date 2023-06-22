@@ -43,13 +43,15 @@ export default async function Home({
   const toStr = getParam('to', tommorowStart.toISOString());
   const selectedBin = getParam('selectedBin', '');
 
-  const tz = await runSelect1();
-  console.log("TIMEZONE: " + JSON.stringify(tz[0]));
+  // const tz = await runSelect1();
+  // console.log("TIMEZONE: " + JSON.stringify(tz[0]));
 
-  const regionsMap = await fetchRegionsMap();
-  const timeRange = await timestampsFromStrings(fromStr, toStr);
+  const [regionsMap, timeRange, qgroups] = await Promise.all([
+      fetchRegionsMap(),
+      timestampsFromStrings(fromStr, toStr),
+      fetchQueriesGroups(filters, groupBy, fromStr, toStr),
+  ]);
   const chunks = splitRangeIntoChunks(timeRange);
-  const qgroups = await fetchQueriesGroups(filters, groupBy, fromStr, toStr);
 
   const groups = await Promise.all(qgroups.map((group) => {
     return fetchGroupInfo(filters, fromStr, toStr, chunks, group);

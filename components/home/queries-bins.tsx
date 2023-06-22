@@ -28,10 +28,13 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             failed_count: 0,
             success_count: 0,
             bin: new Date(ms),
+            avg_duration_ns: undefined
         });
     }
 
     const router = useRouter();
+
+    const maxAvgDuration = Math.max(...bins.map((bin) => bin.avg_duration_ns || 0));
 
     const htmlBins = bins.map((bin) => {
         const { startTs, duration } = getBinInterval(group, bin);
@@ -40,6 +43,7 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             ['Queries', bin.count],
             ['Success', bin.success_count],
             ['Failed', bin.failed_count],
+            ['Avg. Duration', bin.avg_duration_ns == undefined ? 'N/A' : `${Math.round(bin.avg_duration_ns / 1000000)} ms`]
         ];
         {/* TODO: unfinished, latencies, etc */}
 
@@ -60,13 +64,29 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             </div>
         )
 
-        let colorClass;
+        let colorClass = '';
+        let isEmpty = false;
         if (uniqueBinId(group, bin) == selectedBin) {
             colorClass = 'bg-blue-500';
         } else if (bin.count == 0) {
             colorClass = 'bg-zinc-400/20 hover:bg-zinc-400/50';
+            isEmpty = true;
         } else {
-            colorClass = 'bg-emerald-500';
+            // colorClass = 'bg-emerald-500';
+        }
+
+        const heightPercent = (!bin.avg_duration_ns) ? (100) : Math.max(5, bin.avg_duration_ns / maxAvgDuration * 100);
+
+        let colorMix = 100;
+
+        if (bin.failed_count > 0) {
+            const ratio = bin.failed_count / Math.max(1, bin.count);
+            // 0.01 -> 10
+            // 0.05 -> 20
+            // 0.1 -> 40
+            // 0.5 -> 90
+            // 1.0 -> 100
+            colorMix = 100 - Math.round(Math.pow(ratio, 0.1) * 100);
         }
 
         return (
@@ -75,7 +95,10 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
                     className={`flex-1 rounded-sm border border-white transition-all duration-150 px-px hover:scale-110 py-1 ${
                         colorClass
                     }`} // bg-red-500
-                    style={{height: '100%'}}
+                    style={{
+                        height: heightPercent + '%',
+                        ...(colorClass == '' ? {backgroundColor: `color-mix(in srgb, rgb(16 185 129) ${colorMix}%, rgb(239 68 68))`} : {}),
+                    }}
                     onClick={() => {
                         const searchParams = new URLSearchParams(window.location.search);
                         searchParams.set('selectedBin', uniqueBinId(group, bin));
