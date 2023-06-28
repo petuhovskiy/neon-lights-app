@@ -1,18 +1,11 @@
-import Card from "@/components/home/card";
-import Balancer from "react-wrap-balancer";
-import { DEPLOY_URL } from "@/lib/constants";
-import { Github, Twitter } from "@/components/shared/icons";
-import WebVitals from "@/components/home/web-vitals";
-import ComponentGrid from "@/components/home/component-grid";
-import Image from "next/image";
-import { nFormatter } from "@/lib/utils";
-import { GroupBinInfo, Query, fetchGroupInfo, fetchQueries, fetchQueriesGroups, fetchRegionsMap, runSelect1, timestampsFromStrings } from "@/lib/db";
+import { GroupBinInfo, Query, SystemDetails, fetchGroupInfo, fetchQueries, fetchQueriesGroups, fetchRegionsMap, fetchSystemDetails, runSelect1, timestampsFromStrings } from "@/lib/db";
 import { cookies } from 'next/headers';
 import { checkAuth } from "@/lib/keyauth";
 import ControlPanel from "@/components/home/control-panel";
 import { QueriesResults, Group } from "@/components/home/queries-results";
 import { TimeChunks, splitRangeIntoChunks } from "@/lib/intervals";
 import { uniqueBinId } from "@/lib/bins";
+import ErrorCard from "@/components/home/error-card";
 
 export default async function Home({
   searchParams,
@@ -21,6 +14,8 @@ export default async function Home({
   searchParams: { [key: string]: string | string[] | undefined }
 }) {
   let user = checkAuth(cookies());
+
+  console.log("searchParams: " + JSON.stringify(searchParams));
 
   function getParam(key: string, defaultValue: string) {
     const value = searchParams[key];
@@ -42,47 +37,65 @@ export default async function Home({
   const fromStr = getParam('from', todayStart.toISOString());
   const toStr = getParam('to', tommorowStart.toISOString());
   const selectedBin = getParam('selectedBin', '');
+  const detailsFlag = getParam('details', 'false') == 'true';
 
   // const tz = await runSelect1();
   // console.log("TIMEZONE: " + JSON.stringify(tz[0]));
 
-  const [regionsMap, timeRange, qgroups] = await Promise.all([
-      fetchRegionsMap(),
-      timestampsFromStrings(fromStr, toStr),
-      fetchQueriesGroups(filters, groupBy, fromStr, toStr),
-  ]);
-  const chunks = splitRangeIntoChunks(timeRange);
+  let fetchDetails: Promise<SystemDetails | undefined> = Promise.resolve(undefined);
+  if (detailsFlag) {
+    fetchDetails = fetchSystemDetails();
+  }
 
-  const groups = await Promise.all(qgroups.map((group) => {
-    return fetchGroupInfo(filters, fromStr, toStr, chunks, group);
-  }));
+  try {
+    const [regionsMap, timeRange, qgroups, details] = await Promise.all([
+        fetchRegionsMap(),
+        timestampsFromStrings(fromStr, toStr),
+        fetchQueriesGroups(filters, groupBy, fromStr, toStr),
+        fetchDetails,
+    ]);
+    const chunks = splitRangeIntoChunks(timeRange);
 
-  let hasSelectedBin = false;
-  let selectedGroup: Group | undefined = undefined;
-  let selectedBinInfo: GroupBinInfo | undefined = undefined;
+    const groups = await Promise.all(qgroups.map((group) => {
+      return fetchGroupInfo(filters, fromStr, toStr, chunks, group);
+    }));
 
-  for (const group of groups) {
-    for (const bin of group.bins) {
-      if (uniqueBinId(group, bin) == selectedBin) {
-        hasSelectedBin = true;
-        selectedGroup = group;
-        selectedBinInfo = bin;
-        break;
+    let hasSelectedBin = false;
+    let selectedGroup: Group | undefined = undefined;
+    let selectedBinInfo: GroupBinInfo | undefined = undefined;
+
+    for (const group of groups) {
+      for (const bin of group.bins) {
+        if (uniqueBinId(group, bin) == selectedBin) {
+          hasSelectedBin = true;
+          selectedGroup = group;
+          selectedBinInfo = bin;
+          break;
+        }
       }
     }
-  }
 
-  let fullQueries: Query[] | undefined = undefined;
-  if (hasSelectedBin && selectedGroup && selectedBinInfo) {
-    fullQueries = await fetchQueries(filters, fromStr, toStr, chunks, selectedGroup, selectedBinInfo);
-  }
+    let fullQueries: Query[] | undefined = undefined;
+    if (hasSelectedBin && selectedGroup && selectedBinInfo) {
+      fullQueries = await fetchQueries(filters, fromStr, toStr, chunks, selectedGroup, selectedBinInfo);
+    }
 
-  return (
-    <>
-      <div className="my-10 grid w-full max-w-screen-lg animate-fade-up grid-cols-1 gap-5 px-5 xl:px-0">
-        <ControlPanel filtersStr={filters} groupByStr={groupBy} fromStr={fromStr} toStr={toStr}/>
-        <QueriesResults groups={groups} regions={regionsMap} selectedBin={selectedBin} selectedBinQueries={fullQueries} selectedGroup={selectedGroup} />
-      </div>
-    </>
-  );
+    return (
+      <>
+        <div className="my-10 grid w-full max-w-screen-lg animate-fade-up grid-cols-1 gap-5 px-5 xl:px-0">
+          <ControlPanel filtersStr={filters} groupByStr={groupBy} fromStr={fromStr} toStr={toStr} detailsFlag={detailsFlag}/>
+          <QueriesResults details={details} groups={groups} regions={regionsMap} selectedBin={selectedBin} selectedBinQueries={fullQueries} selectedGroup={selectedGroup} />
+        </div>
+      </>
+    );
+  } catch (e) {
+    return (
+      <>
+        <div className="my-10 grid w-full max-w-screen-lg animate-fade-up grid-cols-1 gap-5 px-5 xl:px-0">
+          <ControlPanel filtersStr={filters} groupByStr={groupBy} fromStr={fromStr} toStr={toStr} detailsFlag={detailsFlag}/>
+          <ErrorCard error={e} />
+        </div>
+      </>
+    )
+  }
 }

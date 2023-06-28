@@ -8,6 +8,9 @@ import { bigint, boolean, integer, pgEnum, pgTable, serial, text, timestamp, uni
 
 const client = postgres(process.env.STATS_DB || '', {
     ssl: true,
+    max: 5,
+    idle_timeout: 20,
+    max_lifetime: 60,
 });
 const db = drizzle(client, {
     logger: true,
@@ -25,9 +28,13 @@ export type QGroup = {
     uniqueId: string,
 }
 
-export async function fetchQueriesGroups(filters: string, groupBy: string, fromTs: string, toTs: string) {
+export async function fetchQueriesGroups(filtersSQL: string, groupBySQL: string, fromTs: string, toTs: string) {
+    const filters = sql.raw(filtersSQL);
+    const groupBy = sql.raw(groupBySQL);
+
     // SELECT region_id, count(*) FROM queries WHERE created_at > '2023-06-21' GROUP BY region_id;
-    const res = await db.execute(sql.raw(`SELECT ${groupBy}, count(*) FROM queries WHERE (${filters}) AND created_at >= '${fromTs}' AND created_at < '${toTs}' GROUP BY ${groupBy} ORDER BY ${groupBy}`));
+    const query = sql`SELECT ${groupBy}, count(*) FROM queries WHERE (${filters}) AND created_at >= ${fromTs} AND created_at < ${toTs} GROUP BY ${groupBy} ORDER BY ${groupBy}`;
+    const res = await db.execute(query);
     
     const groups: QGroup[] = [];
     for (const row of res) {
@@ -56,7 +63,7 @@ export type TimeRange = {
 };
 
 export async function timestampsFromStrings(fromStr: string, toStr: string) {
-    const res = await db.execute(sql.raw(`SELECT '${fromStr}'::timestamptz AS from, '${toStr}'::timestamptz AS to`));
+    const res = await db.execute(sql`SELECT ${fromStr}::timestamptz AS from, ${toStr}::timestamptz AS to`);
     // console.log(res);
     return {
         from: res[0]['from'],
@@ -72,20 +79,29 @@ export type GroupBinInfo = {
     bin: Date,
 }
 
-export async function fetchGroupInfo(filters: string, fromTs: string, toTs: string, chunks: TimeChunks, group: QGroup) {
-    let groupFilters = '';
+export async function fetchGroupInfo(filtersSQL: string, fromTs: string, toTs: string, chunks: TimeChunks, group: QGroup) {
+    const filters = sql.raw(filtersSQL);
+    
+    // (${filters}) AND created_at >= ${fromTs} AND created_at < ${toTs}
+    let groupFiltersArr = [
+        filters,
+        sql`created_at >= ${fromTs}`,
+        sql`created_at < ${toTs}`,
+    ];
     for (const [key, value] of Object.entries(group.row)) {
-        groupFilters += ` AND ${key} = '${value}'`;
+        groupFiltersArr.push(sql`${sql.raw(key)} = ${value}`);
+        // groupFilters += ` AND ${key} = '${value}'`;
     }
+    const groupFilters = sql.join(groupFiltersArr, sql` AND `);
 
-    let dateBin = `date_bin('${chunks.intervalMs} ms', created_at, '${chunks.start.toISOString()}')`;
+    let dateBin = sql`date_bin(${chunks.intervalMs + ' ms'}, created_at, ${chunks.start.toISOString()})`;
 
-    const failedCount = `count(*) FILTER (WHERE is_failed = 't')`;
-    const successCount = `count(*) FILTER (WHERE is_failed = 'f')`;
+    const failedCount = sql`count(*) FILTER (WHERE is_failed = 't')`;
+    const successCount = sql`count(*) FILTER (WHERE is_failed = 'f')`;
 
     // SELECT count(*), date_bin('1000 ms', created_at, '2023-06-21') AS bin FROM queries WHERE created_at > '2023-06-21' AND created_at < '2023-06-22'` GROUP BY bin
-    const res = await db.execute<GroupBinInfo>(sql.raw(`SELECT count(*) AS count, ${failedCount} AS failed_count, ${successCount} AS success_count, ${dateBin} AS bin, AVG(duration) AS avg_duration_ns FROM queries WHERE (${filters}) AND created_at >= '${fromTs}' AND created_at < '${toTs}' ${groupFilters} GROUP BY bin ORDER BY bin`));
-    
+    const res = await db.execute<GroupBinInfo>(sql`SELECT count(*) AS count, ${failedCount} AS failed_count, ${successCount} AS success_count, ${dateBin} AS bin, AVG(duration) AS avg_duration_ns FROM queries WHERE ${groupFilters} GROUP BY bin ORDER BY bin`);
+
     // TODO: fix this with proper NULL
     for (const row of res) {
         if (Number(row.avg_duration_ns) <= 0.0) {
@@ -102,7 +118,7 @@ export async function fetchGroupInfo(filters: string, fromTs: string, toTs: stri
 }
 
 export async function fetchRegionsMap() {
-    const res = await db.execute<Record<string, string>>(sql.raw(`SELECT id, database_region FROM regions`));
+    const res = await db.execute<Record<string, string>>(sql`SELECT id, database_region FROM regions`);
     let map: Record<string, string> = {};
     for (const row of res) {
         map[row['id']] = row['database_region'];
@@ -161,10 +177,11 @@ export const queries = pgTable('queries', {
 
 export type Query = InferModel<typeof queries>;
 
-export async function fetchQueries(filters: string, fromStr: string, toStr: string, chunks: TimeChunks, selectedGroup: Group, selectedBinInfo: GroupBinInfo): Promise<Query[]> {
+export async function fetchQueries(filtersSQL: string, fromStr: string, toStr: string, chunks: TimeChunks, selectedGroup: Group, selectedBinInfo: GroupBinInfo): Promise<Query[]> {
+    const filters = sql.raw(filtersSQL);
+
     // TODO: fix filters to match func params
-    // TODO: use toStr and fromStr
-    const groupFilters = Object.entries(selectedGroup.row.row).map(([key, value]) => sql.raw(`${key} = '${value}'`));
+    const groupFilters = Object.entries(selectedGroup.row.row).map(([key, value]) => sql`${sql.raw(key)} = ${value}`);
 
     const binStart = selectedBinInfo.bin;
     const binEnd = new Date(binStart.getTime() + chunks.intervalMs);
@@ -172,9 +189,23 @@ export async function fetchQueries(filters: string, fromStr: string, toStr: stri
     return await db.select().from(queries).where(and(
         gte(queries.created_at, binStart),
         lt(queries.created_at, binEnd),
-        sql.raw(filters),
-        gte(queries.created_at, sql.raw(`'${fromStr}'::timestamptz`)),
-        lt(queries.created_at, sql.raw(`'${toStr}'::timestamptz`)),
+        filters,
+        gte(queries.created_at, sql`${fromStr}::timestamptz`),
+        lt(queries.created_at, sql`${toStr}::timestamptz`),
         ...groupFilters,
     )).orderBy(desc(queries.created_at));
+}
+
+export interface SystemDetails {
+    totalQueries: number,
+    globalRules: Record<string, any>[],
+}
+
+export async function fetchSystemDetails(): Promise<SystemDetails> {
+    const totalQueries = await db.select({ count: sql<number>`count(*)` }).from(queries);
+    const globalRules = await db.execute<Record<string, any>>(sql.raw(`SELECT * FROM global_rules`));
+    return {
+        totalQueries: totalQueries[0].count,
+        globalRules,
+    }
 }

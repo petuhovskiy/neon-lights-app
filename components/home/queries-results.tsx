@@ -1,11 +1,11 @@
-import { GroupBinInfo, QGroup, Query } from "@/lib/db";
+import { GroupBinInfo, QGroup, Query, SystemDetails } from "@/lib/db";
 import { TimeChunks } from "@/lib/intervals";
 import { Bins } from "./queries-bins";
-import { nFormatter } from "@/lib/utils";
+import { nFormatter, truncate } from "@/lib/utils";
 import { getBinInterval, uniqueBinId } from "@/lib/bins";
-import { Search, Twitter } from "../shared/icons";
 import { ZoomInInterval } from "./zoom-in-interval";
 import { ExpandableQuery } from "./expandable-query";
+import { ExpandableCode } from "./expandable-code";
 
 export type Group = {
     row: QGroup;
@@ -15,12 +15,14 @@ export type Group = {
 
 export function QueriesResults(
     {
+        details,
         groups,
         regions,
         selectedBin,
         selectedBinQueries,
         selectedGroup,
     }: {
+        details: SystemDetails | undefined,
         groups: Group[],
         regions: Record<string, string>,
         selectedBin: string,
@@ -44,6 +46,29 @@ export function QueriesResults(
 
     return (
         <>
+            {details != undefined && (
+                <div className="border border-gray-300 rounded-lg p-4 relative overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md">
+                    <h2 className="scroll-m-20 text-2xl font-semibold tracking-tight pb-4">Details</h2>
+                    <div className="w-full pb-4">
+                        <p className="inline-block scroll-m-20 text-xl font-semibold tracking-tight">Total queries</p>
+                        <p className="inline-block text-xl pl-4">{nFormatter(details.totalQueries)}</p>
+                    </div>
+                    <div className="w-full pb-4">
+                        <p className="inline-block scroll-m-20 text-xl font-semibold tracking-tight">Global rules</p>
+                        <ul className="overflow-auto">
+                            {details.globalRules.map((it) => {
+                                const online = JSON.stringify(it);
+                                const json = JSON.stringify(it, null, 2);
+                                return (
+                                    <li key={it["priority"]}>
+                                        <ExpandableCode preview={truncate(online, 70)} full={json} />
+                                    </li>
+                                )
+                            })}
+                        </ul>
+                    </div>
+                </div>
+            )}
             {renders}
         </>
     )
