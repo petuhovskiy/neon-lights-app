@@ -30,11 +30,12 @@ export default async function Home({
 
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
+  const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
   const tommorowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const filters = getParam('filters', 'TRUE');
+  const filters = getParam('filters', `driver != 'go-neonapi'`);
   const groupBy = getParam('groupBy', 'region_id');
-  const fromStr = getParam('from', todayStart.toISOString());
+  const fromStr = getParam('from', yesterdayStart.toISOString());
   const toStr = getParam('to', tommorowStart.toISOString());
   const selectedBin = getParam('selectedBin', '');
   const detailsFlag = getParam('details', 'false') == 'true';
