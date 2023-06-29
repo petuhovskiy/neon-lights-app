@@ -7,7 +7,6 @@ export default function ErrorToast() {
     const searchParams = useSearchParams();
 
     function isAuthError() {
-        console.log(searchParams);
         return searchParams.get('error') === 'wrongtoken';
     }
 

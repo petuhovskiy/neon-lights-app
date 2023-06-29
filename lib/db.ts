@@ -8,9 +8,9 @@ import { bigint, boolean, integer, pgEnum, pgTable, serial, text, timestamp, uni
 
 const client = postgres(process.env.STATS_DB || '', {
     ssl: true,
-    max: 5,
-    idle_timeout: 20,
-    max_lifetime: 60,
+    max: 10,
+    idle_timeout: 60,
+    max_lifetime: 20 * 60,
 });
 const db = drizzle(client, {
     logger: true,
@@ -64,7 +64,7 @@ export type TimeRange = {
 
 export async function timestampsFromStrings(fromStr: string, toStr: string) {
     const res = await db.execute(sql`SELECT ${fromStr}::timestamptz AS from, ${toStr}::timestamptz AS to`);
-    // console.log(res);
+
     return {
         from: res[0]['from'],
         to: res[0]['to'],
@@ -109,7 +109,6 @@ export async function fetchGroupInfo(filtersSQL: string, fromTs: string, toTs: s
         }
     }
    
-    // console.log(res);
     return {
         row: group,
         bins: res,
@@ -123,35 +122,40 @@ export async function fetchRegionsMap() {
     for (const row of res) {
         map[row['id']] = row['database_region'];
     }
-    // console.log(map);
+
     return map;
 }
 
 /*
 external_monitoring=> \d queries
-                                       Table "public.queries"
-   Column    |           Type           | Collation | Nullable |               Default
--------------+--------------------------+-----------+----------+-------------------------------------
- id          | bigint                   |           | not null | nextval('queries_id_seq'::regclass)
- created_at  | timestamp with time zone |           |          |
- updated_at  | timestamp with time zone |           |          |
- project_id  | bigint                   |           |          |
- region_id   | bigint                   |           |          |
- exitnode    | text                     |           |          |
- kind        | text                     |           |          |
- addr        | text                     |           |          |
- driver      | text                     |           |          |
- method      | text                     |           |          |
- request     | text                     |           |          |
- is_finished | boolean                  |           |          |
- response    | text                     |           |          |
- error       | text                     |           |          |
- started_at  | timestamp with time zone |           |          |
- finished_at | timestamp with time zone |           |          |
- is_failed   | boolean                  |           |          |
- duration    | bigint                   |           |          |
+                                          Table "public.queries"
+      Column      |           Type           | Collation | Nullable |               Default
+------------------+--------------------------+-----------+----------+-------------------------------------
+ id               | bigint                   |           | not null | nextval('queries_id_seq'::regclass)
+ created_at       | timestamp with time zone |           |          |
+ updated_at       | timestamp with time zone |           |          |
+ project_id       | bigint                   |           |          |
+ region_id        | bigint                   |           |          |
+ exitnode         | text                     |           |          |
+ kind             | text                     |           |          |
+ addr             | text                     |           |          |
+ driver           | text                     |           |          |
+ method           | text                     |           |          |
+ request          | text                     |           |          |
+ is_finished      | boolean                  |           |          |
+ response         | text                     |           |          |
+ error            | text                     |           |          |
+ started_at       | timestamp with time zone |           |          |
+ finished_at      | timestamp with time zone |           |          |
+ is_failed        | boolean                  |           |          |
+ duration         | bigint                   |           |          |
+ related_query_id | bigint                   |           |          |
+ not_cold         | boolean                  |           |          |
 Indexes:
     "queries_pkey" PRIMARY KEY, btree (id)
+    "queries_created_at_idx" btree (created_at)
+    "queries_is_finished_is_failed_driver_exitnode_created_at_idx" btree (is_finished, is_failed, driver, exitnode, created_at)
+    "queries_region_id_created_at_idx" btree (region_id, created_at)
 */
 
 export const queries = pgTable('queries', {
@@ -173,6 +177,8 @@ export const queries = pgTable('queries', {
     finished_at: timestamp('finished_at', { withTimezone: true }),
     is_failed: boolean('is_failed'),
     duration: bigint('duration', { mode: 'number' }),
+    related_query_id: bigint('related_query_id', { mode: 'number' }),
+    not_cold: boolean('not_cold'),
 });
 
 export type Query = InferModel<typeof queries>;

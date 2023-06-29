@@ -39,9 +39,6 @@ export default async function Home({
   const selectedBin = getParam('selectedBin', '');
   const detailsFlag = getParam('details', 'false') == 'true';
 
-  // const tz = await runSelect1();
-  // console.log("TIMEZONE: " + JSON.stringify(tz[0]));
-
   let fetchDetails: Promise<SystemDetails | undefined> = Promise.resolve(undefined);
   if (detailsFlag) {
     fetchDetails = fetchSystemDetails();
