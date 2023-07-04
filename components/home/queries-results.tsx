@@ -1,4 +1,4 @@
-import { GroupBinInfo, QGroup, Query, SystemDetails } from "@/lib/db";
+import { GroupBinInfo, JoinedQuery, QGroup, Query, SystemDetails } from "@/lib/db";
 import { TimeChunks } from "@/lib/intervals";
 import { Bins } from "./queries-bins";
 import { nFormatter, truncate } from "@/lib/utils";
@@ -26,7 +26,7 @@ export function QueriesResults(
         groups: Group[],
         regions: Record<string, string>,
         selectedBin: string,
-        selectedBinQueries: Query[] | undefined,
+        selectedBinQueries: JoinedQuery[] | undefined,
         selectedGroup: Group | undefined,
     }) {
     const renders = groups.map((group) => {
@@ -103,7 +103,7 @@ export function SelectedBinView(
         selectedBinStr,
     }: {
         group: Group,
-        allQueries: Query[],
+        allQueries: JoinedQuery[],
         selectedBinStr: string
     }
 ) {
@@ -132,7 +132,7 @@ export function SelectedBinView(
             <ul className="overflow-auto">
                 {allQueries.map((query) => {
                     return (
-                        <li key={query.id}>
+                        <li key={query.queries.id}>
                             <ExpandableQuery query={query} />
                         </li>
                     )

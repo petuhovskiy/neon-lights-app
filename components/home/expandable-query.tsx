@@ -1,10 +1,10 @@
 "use client";
 
-import { Query } from "@/lib/db";
+import { JoinedQuery, Query } from "@/lib/db";
 import ms from "ms";
 import { useState } from "react";
 
-export function ExpandableQuery({ query }: { query: Query }) {
+export function ExpandableQuery({ query }: { query: JoinedQuery }) {
     const [open, setOpen] = useState(false);
 
     const toggle = () => {
@@ -15,11 +15,11 @@ export function ExpandableQuery({ query }: { query: Query }) {
         <div className="">
             <a onClick={toggle}>
                 <h3 className="font-mono text-l tracking-tight">
-                    {open ? "▼" : "▶"} [{query.id}] {query.created_at?.toISOString()}
-                    {query.is_failed ? " [FAILED]" : ""}
-                    {!query.is_finished ? " [NOT FINISHED]" : ""}
-                    {" " + query.driver}
-                    {" " + query.method}
+                    {open ? "▼" : "▶"} [{query.queries.id}] {query.queries.created_at?.toISOString()}
+                    {query.queries.is_failed ? " [FAILED]" : ""}
+                    {!query.queries.is_finished ? " [NOT FINISHED]" : ""}
+                    {" " + query.queries.driver}
+                    {" " + query.queries.method}
                 </h3>
             </a>
             {open && (
@@ -29,21 +29,26 @@ export function ExpandableQuery({ query }: { query: Query }) {
     )
 }
 
-export function QueryDetails({ query }: { query: Query }) {
-    const content = Object.entries(query).map(([key, value]) => {
-        // use ISO format for dates
-        if (value instanceof Date) {
-            return `${key}: ${value.toISOString()}`;
-        }
-        if (key == 'duration') {
-            return `${key}: ${value as number / 1000000.0 + " ms"}`;
-        }
-        return `${key}: ${value}`;
-    }).join("\n");
+function mapFunction([key, value]: [key: any, value: any]): string {
+    // use ISO format for dates
+    if (value instanceof Date) {
+        return `${key}: ${value.toISOString()}`;
+    }
+    if (key == 'duration') {
+        return `${key}: ${value as number / 1000000.0 + " ms"}`;
+    }
+    return `${key}: ${value}`;
+};
+
+export function QueryDetails({ query }: { query: JoinedQuery }) {
+    const queryFields = Object.entries(query.queries).map(mapFunction).join("\n");
+    const projectFields = query.projects
+        ? Object.entries(query.projects).map(mapFunction).join("\n")
+        : null;
 
     return (
         <div className="overflow-auto rounded-lg p-4 relative bg-gray-100">
-            <pre>{content}</pre>
+            <pre>query{"\n"}{queryFields}{"\n\n"}project{"\n"}{projectFields}</pre>
         </div>
     )
 }

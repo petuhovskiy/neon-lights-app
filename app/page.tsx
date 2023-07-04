@@ -1,4 +1,4 @@
-import { GroupBinInfo, Query, SystemDetails, fetchGroupInfo, fetchQueries, fetchQueriesGroups, fetchRegionsMap, fetchSystemDetails, runSelect1, timestampsFromStrings } from "@/lib/db";
+import { GroupBinInfo, JoinedQuery, Query, SystemDetails, fetchGroupInfo, fetchQueries, fetchQueriesGroups, fetchRegionsMap, fetchSystemDetails, runSelect1, timestampsFromStrings } from "@/lib/db";
 import { cookies } from 'next/headers';
 import { checkAuth } from "@/lib/keyauth";
 import ControlPanel from "@/components/home/control-panel";
@@ -33,8 +33,8 @@ export default async function Home({
   const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
   const tommorowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  const filters = getParam('filters', `driver != 'go-neonapi'`);
-  const groupBy = getParam('groupBy', 'region_id');
+  const filters = getParam('filters', `driver!='go-neonapi'`);
+  const groupBy = getParam('groupBy', 'regions.provider,regions.database_region,projects.provisioner');
   const fromStr = getParam('from', yesterdayStart.toISOString());
   const toStr = getParam('to', tommorowStart.toISOString());
   const selectedBin = getParam('selectedBin', '');
@@ -52,6 +52,7 @@ export default async function Home({
         fetchQueriesGroups(filters, groupBy, fromStr, toStr),
         fetchDetails,
     ]);
+
     const chunks = splitRangeIntoChunks(timeRange);
 
     const groups = await Promise.all(qgroups.map((group) => {
@@ -73,7 +74,7 @@ export default async function Home({
       }
     }
 
-    let fullQueries: Query[] | undefined = undefined;
+    let fullQueries: JoinedQuery[] | undefined = undefined;
     if (hasSelectedBin && selectedGroup && selectedBinInfo) {
       fullQueries = await fetchQueries(filters, fromStr, toStr, chunks, selectedGroup, selectedBinInfo);
     }

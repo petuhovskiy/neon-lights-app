@@ -28,13 +28,24 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             failed_count: 0,
             success_count: 0,
             bin: new Date(ms),
-            avg_duration_ns: undefined
+            avg_duration_ns: undefined,
+            p50: undefined,
+            p90: undefined,
+            p99: undefined,
         });
     }
 
     const router = useRouter();
 
     const maxAvgDuration = Math.max(...bins.map((bin) => bin.avg_duration_ns || 0));
+    const maxP50 = Math.max(...bins.map((bin) => bin.p50 || 0));
+
+    const formatMs = (ns: number | undefined) => {
+        if (ns == undefined) {
+            return 'N/A';
+        }
+        return `${Math.round(ns / 1000000)} ms`;
+    };
 
     const htmlBins = bins.map((bin) => {
         const { startTs, duration } = getBinInterval(group, bin);
@@ -43,7 +54,10 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             ['Queries', bin.count],
             ['Success', bin.success_count],
             ['Failed', bin.failed_count],
-            ['Avg. Duration', bin.avg_duration_ns == undefined ? 'N/A' : `${Math.round(bin.avg_duration_ns / 1000000)} ms`]
+            ['Avg. Duration', formatMs(bin.avg_duration_ns)],
+            ['p50', formatMs(bin.p50)],
+            ['p90', formatMs(bin.p90)],
+            ['p99', formatMs(bin.p99)],
         ];
         {/* TODO: unfinished, latencies, etc */}
 
@@ -51,7 +65,7 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             <div className="px-4 py-5 overflow-hidden bg-white rounded-sm shadow sm:p-6">
                 <p className="text-xl font-medium truncate text-zinc-900">{startTs} + {duration}</p>
                 <dt className="text-sm font-medium truncate text-zinc-500"></dt>
-                <dl className="grid grid-cols-1 gap-2 mt-5 md:grid-cols-3 lg:grid-cols-6 ">
+                <dl className="grid grid-cols-1 gap-2 mt-5 md:grid-cols-3 lg:grid-cols-7">
                     {data.map(([key, value]) => (
                         <div className="flex flex-col p-4" key={key}>
                             <p className="leading-7 text-zinc-900" color="text-zinc-500">{key}</p>
@@ -75,7 +89,7 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
             // colorClass = 'bg-emerald-500';
         }
 
-        const heightPercent = (!bin.avg_duration_ns) ? (100) : Math.max(5, bin.avg_duration_ns / maxAvgDuration * 100);
+        const heightPercent = (!bin.p50) ? (100) : Math.max(5, bin.p50 / maxP50 * 100);
 
         let colorMix = 100;
 
@@ -92,7 +106,7 @@ export function Bins({ rawBins, chunks, selectedBin, group }: { rawBins: GroupBi
         return (
             <BinTooltip content={content} key={bin.bin.getTime()+'+'+chunks.intervalMs}>
                 <a
-                    className={`flex-1 rounded-sm border border-white transition-all duration-150 px-px hover:scale-110 py-1 ${
+                    className={`flex-1 rounded-sm border border-white transition-all px-px hover:scale-110 py-1 ${
                         colorClass
                     }`} // bg-red-500
                     style={{
