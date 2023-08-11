@@ -7,7 +7,7 @@ export type TimeChunks = {
 }
 
 export function splitRangeIntoChunks(range: TimeRange) {
-    const target = 70;
+    const target = 125;
     const rangesMs = [1, 50, 1000, 60 * 1000, 60 * 60 * 1000, 24 * 60 * 60 * 1000];
 
     for (let i = 0; i < rangesMs.length; i++) {

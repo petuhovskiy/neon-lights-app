@@ -29,7 +29,8 @@ export default async function Home({
   }
 
   const todayStart = new Date();
-  todayStart.setUTCHours(0, 0, 0, 0);
+  // todayStart.setUTCHours(0, 0, 0, 0);
+  todayStart.setUTCMinutes(0, 0, 0);
   const prevStart = new Date(todayStart.getTime() - 1 * 60 * 60 * 1000);
   const nextStart = new Date(todayStart.getTime() + 1 * 60 * 60 * 1000);
 
