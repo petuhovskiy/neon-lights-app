@@ -30,13 +30,13 @@ export default async function Home({
 
   const todayStart = new Date();
   todayStart.setUTCHours(0, 0, 0, 0);
-  const yesterdayStart = new Date(todayStart.getTime() - 24 * 60 * 60 * 1000);
-  const tommorowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  const prevStart = new Date(todayStart.getTime() - 1 * 60 * 60 * 1000);
+  const nextStart = new Date(todayStart.getTime() + 1 * 60 * 60 * 1000);
 
-  const filters = getParam('filters', `driver!='go-neonapi'`);
-  const groupBy = getParam('groupBy', 'regions.provider,regions.database_region,projects.provisioner');
-  const fromStr = getParam('from', yesterdayStart.toISOString());
-  const toStr = getParam('to', tommorowStart.toISOString());
+  const filters = getParam('filters', `is_failed`);
+  const groupBy = getParam('groupBy', 'regions.provider,regions.database_region');
+  const fromStr = getParam('from', prevStart.toISOString());
+  const toStr = getParam('to', nextStart.toISOString());
   const selectedBin = getParam('selectedBin', '');
   const detailsFlag = getParam('details', 'false') == 'true';
 
