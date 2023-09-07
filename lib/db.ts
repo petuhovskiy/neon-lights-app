@@ -169,7 +169,6 @@ external_monitoring=> \d queries
  is_failed        | boolean                  |           |          |
  duration         | bigint                   |           |          |
  related_query_id | bigint                   |           |          |
- not_cold         | boolean                  |           |          |
 Indexes:
     "queries_pkey" PRIMARY KEY, btree (id)
     "queries_created_at_idx" btree (created_at)
@@ -197,7 +196,6 @@ export const queries = pgTable('queries', {
     is_failed: boolean('is_failed'),
     duration: bigint('duration', { mode: 'number' }),
     related_query_id: bigint('related_query_id', { mode: 'number' }),
-    not_cold: boolean('not_cold'),
 });
 
 /*
