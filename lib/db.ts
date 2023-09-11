@@ -294,7 +294,7 @@ export async function fetchQueries(filtersSQL: string, fromStr: string, toStr: s
         .select()
         .from(queries)
         .leftJoin(projects, eq(queries.project_id, projects.id))
-        .leftJoin(regions, eq(projects.region_id, regions.id))
+        .leftJoin(regions, eq(queries.region_id, regions.id))
         .where(and(
             gte(queries.created_at, binStart),
             lt(queries.created_at, binEnd),
