@@ -196,6 +196,7 @@ export const queries = pgTable('queries', {
     is_failed: boolean('is_failed'),
     duration: bigint('duration', { mode: 'number' }),
     related_query_id: bigint('related_query_id', { mode: 'number' }),
+    project_mode: text('project_mode'),
 });
 
 /*
