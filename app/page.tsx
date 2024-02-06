@@ -34,7 +34,7 @@ export default async function Home({
   const prevStart = new Date(todayStart.getTime() - 1 * 60 * 60 * 1000);
   const nextStart = new Date(todayStart.getTime() + 1 * 60 * 60 * 1000);
 
-  const filters = getParam('filters', `is_failed`);
+  const filters = getParam('filters', `(queries.duration > 1e6 * 1000 OR TRUE)`);
   const groupBy = getParam('groupBy', 'regions.provider,regions.database_region');
   const fromStr = getParam('from', prevStart.toISOString());
   const toStr = getParam('to', nextStart.toISOString());
